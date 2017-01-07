@@ -39,28 +39,109 @@ predicate IsSubsequenceAtOffset<T>(q1: seq<T>, q2: seq<T>, offset: nat)
 	offset + |q2| <= |q1| && q2 <= q1[offset..]
 }
 
+
 method FindSubstring(str1: string, str2: string) returns (found: bool, offset: nat)
 	// a string in Dafny is a sequence of characters: "seq<char>"
 	ensures found <==> IsSubsequence(str1,str2)
 	ensures found ==> IsSubsequenceAtOffset(str1,str2,offset)
-// TODO: refine this specification into (verified, correct, executable...) code.
 {
 	offset := 0;
-	found := (offset + |str2|) <= |str1| && str2 <= str1;
+	found := ((offset + |str2|) <= |str1|) && (str2 <= str1);
 
 	while ( offset + |str2| <= |str1| && !found )
-	invariant found ==> IsSubsequenceAtOffset(str1,str2,offset)
+	invariant found <==> IsSubsequenceAtOffset(str1,str2,offset)
 	invariant (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found
-	invariant found <==> ((offset + |str2|) <= |str1| ) && (str2 <= str1[offset..])
 	decreases |str1|-offset
 	{
 		offset := offset+1;
 		found := ( (offset + |str2|) <= |str1|) && str2 <= str1[offset..];
 	}
-	assert found <==> ((offset + |str2|) <= |str1| ) && (str2 <= str1[offset..]);
-	assert  (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found;
-//	assert  IsSubsequence(str1,str2) ==> found;
-//	assert  found ==> IsSubsequence(str1,str2) ;
+
+	assert found <==> IsSubsequenceAtOffset(str1,str2,offset);
+	assert (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found;
+
 	assert found <==> IsSubsequence(str1,str2);
 	assert found ==> IsSubsequenceAtOffset(str1,str2,offset);
 }
+
+
+
+/**  Annotated Version: */
+
+/**
+method FindSubstring'(str1: string, str2: string) returns (found: bool, offset: nat)
+	// a string in Dafny is a sequence of characters: "seq<char>"
+	ensures found <==> IsSubsequence(str1,str2)
+	ensures found ==> IsSubsequenceAtOffset(str1,str2,offset)
+{
+	
+	assert (((0 + |str2|) <= |str1|) && (str2 <= str1)) <==> IsSubsequenceAtOffset(str1,str2,0);
+	assert (exists i: nat :: i < 0  && IsSubsequenceAtOffset(str1,str2,i)) ==> (((0 + |str2|) <= |str1|) && (str2 <= str1));
+
+	offset := 0;
+	found := ((offset + |str2|) <= |str1|) && (str2 <= str1);
+
+	assert found <==> IsSubsequenceAtOffset(str1,str2,offset);
+	assert (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found;
+
+	while ( offset + |str2| <= |str1| && !found )
+	invariant found <==> IsSubsequenceAtOffset(str1,str2,offset)
+	invariant (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found
+	decreases |str1|-offset
+	{
+		assert ( offset + |str2| <= |str1| && !found ); //guard
+
+		assert (( (offset+1 + |str2|) <= |str1|) && str2 <= str1[offset+1..]) <==> IsSubsequenceAtOffset(str1,str2,offset+1);
+		assert (exists i: nat :: i < offset+1  && IsSubsequenceAtOffset(str1,str2,i)) ==> (( (offset+1 + |str2|) <= |str1|) && str2 <= str1[offset+1..]);
+
+		offset := offset+1;
+		
+		assert (( (offset + |str2|) <= |str1|) && str2 <= str1[offset..]) <==> IsSubsequenceAtOffset(str1,str2,offset);
+		assert (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> (( (offset + |str2|) <= |str1|) && str2 <= str1[offset..]);
+
+		found := ( (offset + |str2|) <= |str1|) && str2 <= str1[offset..];
+		
+		assert found <==> IsSubsequenceAtOffset(str1,str2,offset);
+		assert (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found;
+	}
+	assert !( offset + |str2| <= |str1| && !found );
+	assert (offset + |str2| > |str1|) || found; // equivilant
+
+	//the invariants:
+	assert found <==> IsSubsequenceAtOffset(str1,str2,offset);
+	assert (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found;
+
+	// ==>
+
+	assert found <==> IsSubsequence(str1,str2); // by LemaExplain(str1,str2,found,offset)
+	assert found ==> IsSubsequenceAtOffset(str1,str2,offset); //by inv1 {found <==> IsSubsequenceAtOffset(str1,str2,offset);}
+}
+
+// The sole purpose of this lemma is to explain to the reader how the post condition is derived from the specified pre conditions
+// It isn't a necessary part of our solution
+// the preconditions are the !guard of the while loop and the invariants
+// the postcondition of this lemma is one of the postconditions of the method FindSubstring
+lemma LemmaExplain(str1: string, str2: string, found:bool, offset: nat)
+requires !(offset + |str2| <= |str1| && !found)
+requires found <==> IsSubsequenceAtOffset(str1,str2,offset)
+requires (exists i: nat :: i < offset  && IsSubsequenceAtOffset(str1,str2,i)) ==> found
+ensures found <==> IsSubsequence(str1,str2)
+{
+
+	assert (found <==> IsSubsequence(str1,str2))  == (found <==> (exists offset: nat :: offset + |str2| <= |str1| && IsSubsequenceAtOffset(str1,str2,offset)));
+	
+	assert found <== (exists offset: nat :: offset + |str2| <= |str1| && IsSubsequenceAtOffset(str1,str2,offset)); // equivilant to inv2 
+
+	assert found ==> (exists offset: nat :: offset + |str2| <= |str1| && IsSubsequenceAtOffset(str1,str2,offset)) by
+	{
+		assert found ==> IsSubsequenceAtOffset(str1,str2,offset); //inv1
+		assert (found ==> offset + |str2| <= |str1| && str2 <= str1[offset..]) ==> (found ==> (exists offset: nat :: offset + |str2| <= |str1| && IsSubsequenceAtOffset(str1,str2,offset)));
+	}
+
+	// ==> 
+
+	assert found <==> IsSubsequence(str1,str2);
+
+}
+
+*/
