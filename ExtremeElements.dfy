@@ -32,11 +32,17 @@ method ExtremeElements(qs: seq<seq<int>>) returns (min: int, max: int)
 {
 	min, max := qs[0][0], qs[0][0];
 	var i: nat,j: nat := 0,1;
+	ghost var i0:=i;
 	while i != |qs|
 		invariant Inv1(qs,i,j,min,max)
 		decreases |qs|-i
 	{
+		i0:=i;
+
 		i,j,min,max := EE1(qs,i,j,min,max);
+
+		assert Inv1(qs,i,j,min,max);
+		assert 0<=|qs|-i<|qs|-i0;
 	}
 }
 
@@ -119,11 +125,25 @@ method Max(a:seq<int>) returns(max:int)
 	invariant (i<=|a|) && (forall j:int :: j>=0 && j<i ==> max >= a[j]) && (exists j:int :: j>=0 && j<i && max==a[j])
 	decreases (|a|-i) 
 	{
+	assert i < |a| && (i<=|a|) && (forall j:int :: j>=0 && j<i ==> max >= a[j]) && (exists j:int :: j>=0 && j<i && max==a[j]);
 		if(a[i] > max)
 		{
+		 assert i < |a| && (i<=|a|) && (forall j:int :: j>=0 && j<i ==> max >= a[j]) && (exists j:int :: j>=0 && j<i && max==a[j]) && a[i] > max;
+			
+			assert (i+1<=|a|) && (forall j:int :: j>=0 && j<i+1 ==> a[i] >= a[j]) && (exists j:int :: j>=0 && j<i+1 && a[i]==a[j]);
+
 			max := a[i];
+			
+			assert (i+1<=|a|) && (forall j:int :: j>=0 && j<i+1 ==> max >= a[j]) && (exists j:int :: j>=0 && j<i+1 && max==a[j]);
 		}
+		else{
+			assert i < |a| && (i<=|a|) && (forall j:int :: j>=0 && j<i ==> max >= a[j]) && (exists j:int :: j>=0 && j<i && max==a[j]);
+			assert (i+1<=|a|) && (forall j:int :: j>=0 && j<i+1 ==> max >= a[j]) && (exists j:int :: j>=0 && j<i+1 && max==a[j]);
+		}
+
+		assert (i+1<=|a|) && (forall j:int :: j>=0 && j<i+1 ==> max >= a[j]) && (exists j:int :: j>=0 && j<i+1 && max==a[j]);
 		i := i + 1;
+		assert (i<=|a|) && (forall j:int :: j>=0 && j<i ==> max >= a[j]) && (exists j:int :: j>=0 && j<i && max==a[j]);
 	}
 	 
 } 
@@ -154,7 +174,7 @@ method Min(a:seq<int>) returns(min:int)
 
 /** Annotated Versions */
 
-/**
+
 
 	method EE1'(qs: seq<seq<int>>, i0: nat, j0: nat, min0: int, max0: int) returns (i: nat, j: nat, min: int, max: int)
 	requires Inv1(qs,i0,j0,min0,max0)
@@ -345,5 +365,3 @@ method Min'(a:seq<int>) returns(min:int)
 	assert (forall j :int :: (j >= 0 && j < |a| ==> min <= a[j]));
 	assert (|a| > 0)==>(exists j : int :: j>=0 && j < |a| && min==a[j]);
 } 
-
-*/

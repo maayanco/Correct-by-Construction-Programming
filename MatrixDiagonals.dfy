@@ -176,7 +176,7 @@ method MatrixDiagonal(m: array2<int>, N:nat, d:nat) returns (s:int)
 				}
 			}
 				
-			assert i+1<=N &&MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i+1,0,s);
+			assert i+1<=N && MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i+1,0,s);
 			i:=i+1;
 			assert i<=N && MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i,0,s);
 		}
@@ -253,7 +253,7 @@ lemma L2(m:array2<int>, N:nat, d:nat, i:nat, j:nat, s:int)
 
 /** Annotated Versions (Inluding asserts) */
 
-/**
+
 
 method MatrixDiagonal'(m: array2<int>, N:nat, d:nat) returns (s:int)
 	requires m!=null && d<N == m.Length0 == m.Length1
@@ -261,6 +261,7 @@ method MatrixDiagonal'(m: array2<int>, N:nat, d:nat) returns (s:int)
 	{
 		s:=0;
 		var i: int :=0;
+		ghost var i0: int :=0;
 		assert MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i,0,s);
 
 		while i!=N
@@ -268,6 +269,7 @@ method MatrixDiagonal'(m: array2<int>, N:nat, d:nat) returns (s:int)
 			invariant MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i,0,s)
 			decreases N-i
 		{
+				i0:=i;
 				assert i!=N && i<=N;
 				// ==>
 				assert i<N;
@@ -284,6 +286,11 @@ method MatrixDiagonal'(m: array2<int>, N:nat, d:nat) returns (s:int)
 						LooperRow(m,N,d,i,0,i-d,s);
 					}
 					//adding the element at m[i,i-d]
+					assert m!=null && d<N==m.Length0 == m.Length1 && i<N && i-d<N;
+					assert Abs(i-(i-d))==d;
+					L2(m,N,d,i,i-d,s);
+					assert SumOnD(m,N,d,i,i-d,s)==SumOnD(m,N,d,i,i-d+1,s+m[i,i-d]);
+
 					assert SumOnD(m,N,d,i,i-d,s)==SumOnD(m,N,d,i,i-d+1,s+m[i,i-d]) by 
 					{
 						assert m!=null && d<N==m.Length0 == m.Length1 && i<N && i-d<N;
@@ -389,13 +396,21 @@ method MatrixDiagonal'(m: array2<int>, N:nat, d:nat) returns (s:int)
 						assert forall x :: 0 <= x < N ==> Abs(i-x)!=d;
 						LooperRow(m,N,d,i,0,N,s);
 					}
-					
+					//SumSoFar= SumOnD(m,N,d,i,N,s)
 				}
 			}
-				
-			assert i+1<=N &&MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i+1,0,s);
+			assert i<=N; //i can put it here because i wasn't touched!! only s was touched!!
+			assert MatrixDiagSum(m,N,d)==SumOnD(m,N,d,i+1,0,s); //why is this correct? because it is infered from the postcondition of the if-else 
+			//to show this i broke every possible condition inside the if-else clauses and showed that for every clause the same post condition is reached! 
+			//we show that SumOnD(m,N,d,i,0,s)==SumOnD(m,N,d,i,N,s') //the s before everything is the sum that is suppose to be in the end of the row
+		
+			// ==> 
+			assert SumOnD(m,N,d,i,N,s)==SumOnD(m,N,d,i+1,0,s);
+			assert i+1<=N && MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i+1,0,s); //why is this correct??
 			i:=i+1;
 			assert i<=N && MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i,0,s);
+
+			assert 0<=N-i<N-i0;
 		}
 
 		assert i==N && i<=N && MatrixDiagSum(m,N,d) == SumOnD(m,N,d,i,0,s);
@@ -452,4 +467,3 @@ ensures SumOnD(m,N,d,i,a,s)== SumOnD(m,N,d,i,b,s)
 	assert SumOnD(m,N,d,i,a,s)== SumOnD(m,N,d,i,b,s);
 }
 
-*/
