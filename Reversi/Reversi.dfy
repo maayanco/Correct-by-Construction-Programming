@@ -121,6 +121,12 @@ predicate OccupiedBy(b: Board, pos: Position, player: Disk)
 	OccupiedPosition(b, pos) && b[pos] == player
 }
 
+/*method OccupiedBy(b: Board, pos: Position, player: Disk) returns (
+requires ValidBoard(b)
+{
+	b[pos]==player 
+}*/
+
 //Returns a set of all the positions that are avaliable (not occupied) and in bounds of the board 
 function AvailablePositions(b: Board): set<Position>
 	requires ValidBoard(b)
@@ -143,7 +149,7 @@ function Count(b: Board, player: Disk): nat
 	|PlayerPositions(b, player)|
 }
 
-//Returns true if the provided pos is not occupied and there is a direction such that 
+//Returns true if the provided pos is not occupied and there is a direction such that there is a reversibleVector from it 
 predicate LegalMove(b: Board, player: Disk, pos: Position)
 	requires ValidBoard(b)
 {
@@ -164,7 +170,9 @@ function AllLegalMoves(b: Board, player: Disk): set<Position>
 	set move: Position | move in AvailablePositions(b) && LegalMove(b, player, move)
 }
 
-//
+//reversibleDirections := all directions from which there is a reversible vector,
+// then we take all pos such that they are valid and pos in ReversibleVectorPositions(b, player, move, d)
+// such that d is in reversibleDirections
 function ReversiblePositionsFrom(b: Board, player: Disk, move: Position): set<Position>
 	requires ValidBoard(b)
 {
@@ -206,6 +214,36 @@ predicate ReversibleVector(b: Board, vector: seq<Position>, player: Disk)
 		forall i :: 0 < i < j ==> OccupiedBy(b, vector[i], Opponent(player))
 }
 
+/*method FirstCurrentPlayerDiskDistance(b: Board, player: Disk, move: Position, direction: Direction) returns (firstCurrentPlayerDiskDistance : nat)
+	requires ValidBoard(b) && ValidPosition(move)
+	requires ReversibleVectorFrom(b, player, move, direction)
+{
+	var dummyPosition := (0,0);
+	var positionsVector := VectorPositionsFrom(move, direction)+[dummyPosition,dummyPosition,dummyPosition,dummyPosition,dummyPosition]; // adding dummy disks to avoid (irrelevant) index out of range errors
+
+	if (occupiedBy(b,positionsVector[2], player)){
+		firstCurrentPlayerDiskDistance:=2;
+	}
+	else if (occupiedBy(b, positionsVector[3], player)){
+		firstCurrentPlayerDiskDistance:=3;
+	}
+
+	else if (OccupiedBy(b,positionsVector[4])){
+		firstCurrentPlayerDiskDistance:=4;
+	}
+	else if(OccupiedBy(b,positionsVector[5])){
+		firstCurrentPlayerDiskDistance:=5;
+	}
+	else if(OccupiedBy(b,positionsVector[6])){
+		firstCurrentPlayerDiskDistance:=6;
+	}
+	else{
+		firstCurrentPlayerDiskDistance:=7;
+	}
+
+}*/
+
+//Returns the vector of reversible disks in the provided direction, (i think includes only the opponent's disks)
 function ReversibleVectorPositions(b: Board, player: Disk, move: Position, direction: Direction): set<Position>
 	requires ValidBoard(b) && ValidPosition(move)
 	requires ReversibleVectorFrom(b, player, move, direction)
@@ -222,7 +260,7 @@ function ReversibleVectorPositions(b: Board, player: Disk, move: Position, direc
 		else /* here must be OccupiedBy(b, positionsVector[7], player) */ 7;
 	// skipping the first; collecting at least one position
 	set pos | pos in positionsVector[1..firstCurrentPlayerDiskDistance]
-}
+} //positionsVector contains the vector of all the positions in the provided direction
 
 //receives a position and a direction and returns a vector of positions 
 // from the provided position to the end of the board in the provided direction
@@ -243,6 +281,23 @@ function VectorPositionsFrom(pos: Position, dir: Direction): seq<Position>
 	}
 }
 
+method CreatVectorPositionsFrom(pos: Position, dir: Direction) returns (vector : seq<Position>)
+	requires pos in ValidPositions()
+	ensures var result := VectorPositionsFrom(pos, dir);
+		vector == result
+{
+	match dir {
+		case Up      => vector := CreatUpVector(pos);
+		case UpRight   => vector := CreatUpRightVector(pos);
+		case Right     => vector := CreatRightVector(pos);
+		case DownRight => vector := CreatDownRightVector(pos);
+		case Down      => vector := CreatDownVector(pos);
+		case DownLeft  => vector := CreatDownLeftVector(pos);
+		case Left      => vector := CreatLeftVector(pos);
+		case UpLeft    => vector := CreatUpLeftVector(pos);
+	}
+}
+
 //
 function VectorPositionsUpFrom(pos: Position): seq<Position>
 	requires pos in ValidPositions()
@@ -253,6 +308,41 @@ function VectorPositionsUpFrom(pos: Position): seq<Position>
 	if pos.0 == 0 then [pos] else [pos]+VectorPositionsUpFrom((pos.0-1,pos.1))
 }
 
+method CreatUpVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsUpFrom(move);
+			result == vector
+	decreases move.0
+{
+	if move.0 == 0 
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatUpVector((move.0-1,move.1));
+		vector := [move] + f;
+	}
+}
+
+
+method CreatRightVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsRightFrom(move);
+			result == vector
+	decreases 8-move.1
+{
+	if move.1 == 7
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatRightVector((move.0,move.1+1));
+		vector :=  [move] + f;
+	}
+}
+
 function VectorPositionsUpRightFrom(pos: Position): seq<Position>
 	requires pos in ValidPositions()
 	ensures var result := VectorPositionsUpRightFrom(pos);
@@ -260,6 +350,23 @@ function VectorPositionsUpRightFrom(pos: Position): seq<Position>
 	decreases pos.0
 {
 	if pos.0 == 0 || pos.1 == 7 then [pos] else [pos]+VectorPositionsUpRightFrom((pos.0-1,pos.1+1))
+}
+
+method CreatUpRightVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsUpRightFrom(move);
+			result == vector
+	decreases move.0
+{
+	if move.0 == 0 || move.1 == 7
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatUpRightVector((move.0-1,move.1+1));
+		vector :=  [move] + f;
+	}
 }
 
 function VectorPositionsRightFrom(pos: Position): seq<Position>
@@ -280,6 +387,23 @@ function VectorPositionsDownRightFrom(pos: Position): seq<Position>
 	if pos.0 == 7 || pos.1 == 7 then [pos] else [pos]+VectorPositionsDownRightFrom((pos.0+1,pos.1+1))
 }
 
+method CreatDownRightVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsDownRightFrom(move);
+			result == vector
+	decreases 8-move.0
+{
+	if move.0 == 7 || move.1 == 7
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatDownRightVector((move.0+1,move.1+1));
+		vector :=  [move] + f;
+	}
+}
+
 function VectorPositionsDownFrom(pos: Position): seq<Position>
 	requires pos in ValidPositions()
 	ensures var result := VectorPositionsDownFrom(pos);
@@ -287,6 +411,23 @@ function VectorPositionsDownFrom(pos: Position): seq<Position>
 	decreases 8-pos.0
 {
 	if pos.0 == 7 then [pos] else [pos]+VectorPositionsDownFrom((pos.0+1,pos.1))
+}
+
+method CreatDownVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsDownFrom(move);
+			result == vector
+	decreases 8-move.0
+{
+	if move.0 == 7 
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatDownVector((move.0+1,move.1));
+		vector :=  [move] + f;
+	}
 }
 
 function VectorPositionsDownLeftFrom(pos: Position): seq<Position>
@@ -298,6 +439,23 @@ function VectorPositionsDownLeftFrom(pos: Position): seq<Position>
 	if pos.0 == 7 || pos.1 == 0 then [pos] else [pos]+VectorPositionsDownLeftFrom((pos.0+1,pos.1-1))
 }
 
+method CreatDownLeftVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsDownLeftFrom(move);
+			result == vector
+	decreases move.1
+{
+	if move.0 == 7 || move.1 == 0
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatDownLeftVector((move.0+1,move.1-1));
+		vector :=  [move] + f;
+	}
+}
+
 function VectorPositionsLeftFrom(pos: Position): seq<Position>
 	requires pos in ValidPositions()
 	ensures var result := VectorPositionsLeftFrom(pos);
@@ -305,6 +463,23 @@ function VectorPositionsLeftFrom(pos: Position): seq<Position>
 	decreases pos.1
 {
 	if pos.1 == 0 then [pos] else [pos]+VectorPositionsLeftFrom((pos.0,pos.1-1))
+}
+
+method CreatLeftVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsLeftFrom(move);
+			result == vector
+	decreases move.1
+{
+	if move.1 == 0
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatLeftVector((move.0,move.1-1));
+		vector :=  [move] + f;
+	}
 }
 
 function VectorPositionsUpLeftFrom(pos: Position): seq<Position>
@@ -315,6 +490,25 @@ function VectorPositionsUpLeftFrom(pos: Position): seq<Position>
 {
 	if pos.0 == 0 || pos.1 == 0 then [pos] else [pos]+VectorPositionsUpLeftFrom((pos.0-1,pos.1-1))
 }
+
+
+method CreatUpLeftVector(move: Position ) returns (vector : seq<Position>)
+	requires move in ValidPositions()
+	ensures var result := VectorPositionsUpLeftFrom(move);
+			result == vector
+	decreases move.0
+{
+	if move.0 == 0 || move.1 == 0
+	{
+		vector :=  [move];
+	}
+	else 
+	{
+		var f := CreatUpLeftVector((move.0-1,move.1-1));
+		vector :=  [move] + f;
+	}
+}
+
 
 //Predicate that makes sure the board is in the initial state
 predicate InitState(b: Board)
@@ -355,6 +549,7 @@ lemma LemmaInitBlackHasLegalMoves(b: Board)
 	}
 }
 
+//Returns a move that the black player will perform
 method SelectBlackMove(b: Board, moves: set<Position>) returns (pos: Position)
 	requires ValidBoard(b) && moves <= AllLegalMoves(b, Black)
 	requires forall pos :: pos in moves <==> LegalMove(b,Black,pos)
@@ -403,23 +598,90 @@ method TotalScore(b: Board) returns (blacks: nat, whites: nat)
 }
 
 //Returns all the legal directions from which a potential move can be performed by the provided player and from the provided position
-//Used only for FindAllReversiblePositionsFrom (probably..) and for printing
+//Used only for FindAllReversiblePositionsFrom (probably..) and for printing 
 method FindAllLegalDirectionsFrom(b: Board, player: Disk, move: Position) returns (directions: set<Direction>)
 	requires ValidBoard(b) && LegalMove(b, player, move)
 	ensures directions == ReversibleDirections(b, player, move)
 	
 
-//used only for FindAllLegalMoves (probably..) and for printing
-method FindAllReversiblePositionsFrom(b: Board, player: Disk, move: Position) returns (positions: set<Position>)
+/*method FindFirstDiskOfPlayerInVector(b: Board, dirVectorSeq : seq<Position> ,player : Disk) returns (pos : Position)
+requires ValidBoard(b) 
+	{
+		var i: nat := 0;
+		var currPos : Position;
+		while(i<|dirVectorSeq|)
+		{	
+			var currPos := dirVectorSeq[i];
+			if(b[currPos]==player)
+			{
+				pos := currPos;
+			}
+		}
+	}*/
+
+	method FindAllReversiblePositionsFrom(b: Board, player: Disk, move: Position) returns (positions: set<Position>)
 	requires ValidBoard(b) && LegalMove(b, player, move)
 	ensures positions == ReversiblePositionsFrom(b, player, move)
+	{
+		//ReversibleVectorFrom == {
+		//var vector := VectorPositionsFrom(move, direction);
+		//ReversibleVector(b, vector, player)
+	    // }
+		var direction : Direction;
+		var vector := CreatVectorPositionsFrom(move, direction);
+		assert vector == VectorPositionsFrom(move, direction);
+		var reversibleDirections: set<Direction>;
+		assert ValidPosition(move) && move !in b; //==>
+		assert AvailablePosition(b, move);
+		assert reversibleDirections == (set direction | ReversibleVectorFrom(b, player, move, direction));
+		//==>
+		assert !AvailablePosition(b, move) || reversibleDirections == (set direction | ReversibleVectorFrom(b, player, move, direction));
+		//if !AvailablePosition(b, move) then {} else
+		//set direction | ReversibleVectorFrom(b, player, move, direction)
 
+		assert reversibleDirections == ReversibleDirections(b, player, move); //1
+		assert positions == set pos | pos in ValidPositions() && exists d::d in reversibleDirections && pos in ReversibleVectorPositions(b, player, move, d);	//2
+		//1 && 2 ==>
+		assert positions == ReversiblePositionsFrom(b, player, move);
+	}
+
+//used only for FindAllLegalMoves (probably..) and for printing
+//
+/*method FindAllReversiblePositionsFrom(b: Board, player: Disk, move: Position) returns (positions: set<Position>)
+	requires ValidBoard(b) && LegalMove(b, player, move)
+	ensures positions == ReversiblePositionsFrom(b, player, move)
+	{
+	//i have a legal move (pos), and now i want to return of positions that should be colored! i think.. 
+		var legalDirections := FindAllLegalDirectionsFrom(b,player,move); //return all the directions from which a vector will contain reversible disks..
+		while(|legalDirections|>0)
+		//invariant |legalDirections'-{e}| > 0
+		{	
+			var dir :| dir in legalDirections; // we select a dir
+			var VectorInDirSeq := CreatVectorPositionsFrom(move,dir); //we get a vector in the selected direction
+			//var dirVectorSet := set pos | pos in dirVectorSeq;
+			var firstDiskOfPlayer:= FindFirstDiskOfPlayerInVector(dirVectorSeq,player);
+			//positions := positions + dirVectorSet[1..n];
+			legalDirections := legalDirections - {dir};
+		}
+	//var setOfVectors := set pos | exists dir :: dir in legalDirections && vector == CreatVectorPositionsFrom(move, dir);
+
+	//CreatVectorPositionsFrom(pos: Position, dir: Direction);
+	}*/
 
 
 //Returns all the legal moves that can be performed for an entire player
-method FindAllLegalMoves(b: Board, player: Disk) returns (moves: set<Position>)
-	requires ValidBoard(b)
-	ensures moves == AllLegalMoves(b, player)
+//method FindAllLegalMoves(b: Board, player: Disk) returns (moves: set<Position>)
+//	requires ValidBoard(b)
+//	ensures moves == AllLegalMoves(b, player)
+	//my problem: how do i know if a position has a LegalMove?
+	//if i knew that i would take all the positions of the player that have a LegalMove,
+	// then perform FindAllLegalDirections that will bring me 
+	//{
+		//var allCurrentPlayerPositions := (set pos | pos in b && b[pos]==player); //PlayerPositions(b,player)
+	    //AllLegalMoves(b, player):={ set move: Position | move in AvailablePositions(b) && LegalMove(b, player, move)}
+		// i want to have all the legal directions.
+		// i will want all the poses 
+	//}
 	//i need to iterate over all the disks of a certain player 
 /*{
 	var allCurrentPlayerPositions := (set pos | pos in b && b[pos]==player);
@@ -440,6 +702,33 @@ method FindAllLegalMoves(b: Board, player: Disk) returns (moves: set<Position>)
 	//	totalSetOfPositions := totalSetOfPositions + possiblePositionsPerPos;
 	//}
 }*/
+//set pos | pos in ValidPositions() && exists d :: d in reversibleDirections && pos in ReversibleVectorPositions(b, player, move, d)
+
+
+/*method FindAllLegalMoves(b: Board, player: Disk) returns (moves: set<Position>)
+	requires ValidBoard(b)
+	ensures moves == AllLegalMoves(b, player)
+{
+	var avaliablePositions : set<Position>; 
+	assert avaliablePositions == (set pos | pos in ValidPositions() && AvailablePosition(b, pos)); //this is avaliablePositions==
+	
+	assert legalMove == AvailablePosition(b, pos) && exists direction: Direction :: ReversibleVectorFrom(b, player, pos, direction); //this is legalMove ==LegalMove
+
+	//moves:= (set move : Position | move in avaliablePositions && 
+	assert moves == (set move: Position | move in AvailablePositions(b) && LegalMove(b, player, move)); //this is moves==AllLegalMoves
+	assert moves == AllLegalMoves(b, player);
+}*/
+
+method FindAllLegalMoves(b: Board, player: Disk) returns (moves: set<Position>)
+	requires ValidBoard(b)
+	ensures moves == AllLegalMoves(b, player)
+{
+	
+	assert AvailablePositions(b) == (set pos | pos in ValidPositions() && AvailablePosition(b, pos));	
+	assert AllLegalMoves(b,player) == (set move : Position | move in AvailablePositions(b) && LegalMove(b,player,move));
+	assert moves==AllLegalMoves(b,player);
+}
+
 
 //Perform the actual move
 method PerformMove(b0: Board, player: Disk, move: Position) returns (b: Board)
